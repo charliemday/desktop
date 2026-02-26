@@ -148,6 +148,14 @@
     color: var(--text-secondary-color);
   }
 
+  .byok-config-section .byok-config-field {
+    margin-bottom: var(--spacing-double);
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
   .theme-selector {
     display: flex;
     flex-wrap: wrap;

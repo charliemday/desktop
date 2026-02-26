@@ -23,6 +23,17 @@ import { Appearance } from './appearance'
 import { ApplicationTheme } from '../lib/application-theme'
 import { OkCancelButtonGroup } from '../dialog/ok-cancel-button-group'
 import { Integrations } from './integrations'
+import { CopilotAI } from './copilot-ai'
+import {
+  getCommitMessageProvider,
+  getBYOKEndpoint,
+  getBYOKModel,
+  setCommitMessageProvider,
+  setBYOKEndpoint,
+  setBYOKModel,
+  setBYOKApiKey,
+} from '../../lib/byok-commit-message-config'
+import { enableCommitMessageGeneration } from '../../lib/feature-flag'
 import {
   UncommittedChangesStrategy,
   defaultUncommittedChangesStrategy,
@@ -151,6 +162,11 @@ interface IPreferencesState {
   readonly selectedGitHookEnvShell: string | undefined
   // Whether the preferences related to Git hooks environment have been changed
   readonly hooksPreferencesDirty: boolean
+
+  readonly commitMessageProvider: 'copilot' | 'byok'
+  readonly byokEndpoint: string
+  readonly byokModel: string
+  readonly byokApiKey: string
 }
 
 /**
@@ -213,6 +229,10 @@ export class Preferences extends React.Component<
       cacheGitHookEnv: getCacheHooksEnv(),
       selectedGitHookEnvShell: getGitHookEnvShell(),
       hooksPreferencesDirty: false,
+      commitMessageProvider: getCommitMessageProvider(),
+      byokEndpoint: getBYOKEndpoint(),
+      byokModel: getBYOKModel(),
+      byokApiKey: '',
     }
   }
 
@@ -318,6 +338,10 @@ export class Preferences extends React.Component<
               <Octicon className="icon" symbol={octicons.person} />
               Integrations
             </span>
+            <span id={this.getTabId(PreferencesTab.CopilotAI)}>
+              <Octicon className="icon" symbol={octicons.copilot} />
+              Copilot / AI
+            </span>
             <span id={this.getTabId(PreferencesTab.Git)}>
               <Octicon className="icon" symbol={octicons.gitCommit} />
               Git
@@ -359,6 +383,9 @@ export class Preferences extends React.Component<
         break
       case PreferencesTab.Integrations:
         suffix = 'integrations'
+        break
+      case PreferencesTab.CopilotAI:
+        suffix = 'copilot-ai'
         break
       case PreferencesTab.Git:
         suffix = 'git'
@@ -438,6 +465,25 @@ export class Preferences extends React.Component<
             onDotComSignIn={this.onDotComSignIn}
             onEnterpriseSignIn={this.onEnterpriseSignIn}
             onLogout={this.onLogout}
+          />
+        )
+        break
+      case PreferencesTab.CopilotAI:
+        View = (
+          <CopilotAI
+            commitMessageProvider={this.state.commitMessageProvider}
+            byokEndpoint={this.state.byokEndpoint}
+            byokModel={this.state.byokModel}
+            byokApiKey={this.state.byokApiKey}
+            hasCopilotAccount={this.props.accounts.some(
+              enableCommitMessageGeneration
+            )}
+            onCommitMessageProviderChanged={
+              this.onCommitMessageProviderChanged
+            }
+            onBYOKEndpointChanged={this.onBYOKEndpointChanged}
+            onBYOKModelChanged={this.onBYOKModelChanged}
+            onBYOKApiKeyChanged={this.onBYOKApiKeyChanged}
           />
         )
         break
@@ -686,6 +732,24 @@ export class Preferences extends React.Component<
     this.setState({ confirmCommitMessageOverride: value })
   }
 
+  private onCommitMessageProviderChanged = (
+    commitMessageProvider: 'copilot' | 'byok'
+  ) => {
+    this.setState({ commitMessageProvider })
+  }
+
+  private onBYOKEndpointChanged = (byokEndpoint: string) => {
+    this.setState({ byokEndpoint })
+  }
+
+  private onBYOKModelChanged = (byokModel: string) => {
+    this.setState({ byokModel })
+  }
+
+  private onBYOKApiKeyChanged = (byokApiKey: string) => {
+    this.setState({ byokApiKey })
+  }
+
   private onUncommittedChangesStrategyChanged = (
     uncommittedChangesStrategy: UncommittedChangesStrategy
   ) => {
@@ -908,6 +972,13 @@ export class Preferences extends React.Component<
     dispatcher.setUnderlineLinksSetting(this.state.underlineLinks)
 
     dispatcher.setDiffCheckMarksSetting(this.state.showDiffCheckMarks)
+
+    setCommitMessageProvider(this.state.commitMessageProvider)
+    setBYOKEndpoint(this.state.byokEndpoint.trim())
+    setBYOKModel(this.state.byokModel.trim())
+    if (this.state.byokApiKey !== '') {
+      await setBYOKApiKey(this.state.byokApiKey)
+    }
 
     this.props.onDismissed()
   }

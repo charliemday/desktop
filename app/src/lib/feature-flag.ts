@@ -1,4 +1,9 @@
 import { Account } from '../models/account'
+import {
+  getCommitMessageProvider,
+  getBYOKEndpoint,
+  getBYOKModel,
+} from './byok-commit-message-config'
 
 const Disable = false
 
@@ -97,6 +102,22 @@ export const enableCommitMessageGeneration = (account: Account) => {
     // with a check for the `isCopilotDesktopEnabled` property on the account.
     account.isCopilotDesktopEnabled
   )
+}
+
+/**
+ * Whether commit message generation is available (Copilot or BYOK).
+ * Synchronous check for UI enablement.
+ */
+export function canGenerateCommitMessage(
+  accounts: ReadonlyArray<Account>
+): boolean {
+  const provider = getCommitMessageProvider()
+  if (provider === 'copilot') {
+    return accounts.some(enableCommitMessageGeneration)
+  }
+  const endpoint = getBYOKEndpoint().trim()
+  const model = getBYOKModel().trim()
+  return endpoint !== '' && model !== ''
 }
 
 export function enableAccessibleListToolTips(): boolean {

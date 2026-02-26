@@ -252,6 +252,14 @@ import {
   enableCommitMessageGeneration,
   enableCustomIntegration,
 } from '../feature-flag'
+import {
+  getCommitMessage,
+  type CommitMessageProviderConfig,
+} from '../commit-message-provider'
+import {
+  getCommitMessageProvider,
+  getBYOKConfig,
+} from '../byok-commit-message-config'
 import { Banner, BannerType } from '../../models/banner'
 import { ComputedAction } from '../../models/computed-action'
 import {
@@ -5602,15 +5610,29 @@ export class AppStore extends TypedBaseStore<IAppState> {
     repository: Repository,
     filesSelected: ReadonlyArray<WorkingDirectoryFileChange>
   ): Promise<boolean> {
-    // Prefer the account that is associated to this repository.
-    const repositoryAccount = getAccountForRepository(this.accounts, repository)
-    const account =
-      repositoryAccount && enableCommitMessageGeneration(repositoryAccount)
-        ? repositoryAccount
-        : this.accounts.find(enableCommitMessageGeneration)
+    const provider = getCommitMessageProvider()
+    let providerConfig: CommitMessageProviderConfig
 
-    if (!account) {
-      return false
+    if (provider === 'copilot') {
+      const repositoryAccount = getAccountForRepository(
+        this.accounts,
+        repository
+      )
+      const account =
+        repositoryAccount && enableCommitMessageGeneration(repositoryAccount)
+          ? repositoryAccount
+          : this.accounts.find(enableCommitMessageGeneration)
+
+      if (!account) {
+        return false
+      }
+      providerConfig = { provider: 'copilot', api: API.fromAccount(account) }
+    } else {
+      const config = await getBYOKConfig()
+      if (config.endpoint.trim() === '' || config.model.trim() === '') {
+        return false
+      }
+      providerConfig = { provider: 'byok', config }
     }
 
     this._setCommitMessageGenerationButtonClicked()
@@ -5629,8 +5651,6 @@ export class AppStore extends TypedBaseStore<IAppState> {
     }
 
     return this.withIsGeneratingCommitMessage(repository, async () => {
-      // If user is amending a commit, we want to use the commit
-      // to amend as the base for the commit message generation.
       const commitToAmend =
         this.repositoryStateCache.get(repository)?.commitToAmend?.sha ??
         undefined
@@ -5643,9 +5663,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
         return false
       }
 
-      const api = API.fromAccount(account)
       try {
-        const response = await api.getDiffChangesCommitMessage(diff)
+        const response = await getCommitMessage(diff, providerConfig)
 
         this._setCommitMessage(repository, {
           summary: response.title,

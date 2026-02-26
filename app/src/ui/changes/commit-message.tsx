@@ -63,9 +63,10 @@ import { useRepoRulesLogic } from '../../lib/helpers/repo-rules'
 import { isDotCom } from '../../lib/endpoint-capabilities'
 import { WorkingDirectoryFileChange } from '../../models/status'
 import {
-  enableCommitMessageGeneration,
+  canGenerateCommitMessage,
   enableHooksEnvironment,
 } from '../../lib/feature-flag'
+import { getCommitMessageProvider } from '../../lib/byok-commit-message-config'
 import { AriaLiveContainer } from '../accessibility/aria-live-container'
 import { HookProgress } from '../../lib/git'
 import { assertNever } from '../../lib/fatal-error'
@@ -861,7 +862,7 @@ export class CommitMessage extends React.Component<
     } = this.props
 
     if (
-      !accounts.some(enableCommitMessageGeneration) ||
+      !canGenerateCommitMessage(accounts) ||
       onGenerateCommitMessage === undefined
     ) {
       return null
@@ -870,10 +871,18 @@ export class CommitMessage extends React.Component<
     const noFilesSelected = filesSelected.length === 0
     const noChangesAvailable = !commitToAmend && noFilesSelected
 
+    const provider = getCommitMessageProvider()
+    const labelBase =
+      provider === 'byok'
+        ? __DARWIN__
+          ? 'Generate Commit Message with AI'
+          : 'Generate commit message with AI'
+        : __DARWIN__
+          ? 'Generate Commit Message with Copilot'
+          : 'Generate commit message with Copilot'
+
     return {
-      label: __DARWIN__
-        ? 'Generate Commit Message with Copilot'
-        : 'Generate commit message with Copilot',
+      label: labelBase,
       action: () => {
         const { commitMessage } = this.state
         onGenerateCommitMessage(
@@ -978,9 +987,14 @@ export class CommitMessage extends React.Component<
     const noFilesSelected = filesSelected.length === 0
     const noChangesAvailable = !commitToAmend && noFilesSelected
 
+    const provider = getCommitMessageProvider()
+    const labelSuffix =
+      provider === 'byok'
+        ? 'Generate commit message with AI'
+        : 'Generate commit message with Copilot'
     const ariaLabel = isGeneratingCommitMessage
       ? 'Generating commit details…'
-      : 'Generate commit message with Copilot' +
+      : labelSuffix +
         (noChangesAvailable
           ? '. Files must be selected to generate a commit message.'
           : '')
@@ -1140,7 +1154,7 @@ export class CommitMessage extends React.Component<
   private get isCopilotButtonEnabled() {
     const { accounts, onGenerateCommitMessage } = this.props
     return (
-      accounts.some(enableCommitMessageGeneration) &&
+      canGenerateCommitMessage(accounts) &&
       onGenerateCommitMessage !== undefined
     )
   }

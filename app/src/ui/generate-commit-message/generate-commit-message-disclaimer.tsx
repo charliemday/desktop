@@ -9,6 +9,7 @@ import { Dispatcher } from '../dispatcher'
 import { Repository } from '../../models/repository'
 import { WorkingDirectoryFileChange } from '../../models/status'
 import { LinkButton } from '../lib/link-button'
+import { getCommitMessageProvider } from '../../lib/byok-commit-message-config'
 
 interface IGenerateCommitMessageDisclaimerProps {
   readonly dispatcher: Dispatcher
@@ -27,9 +28,12 @@ export class GenerateCommitMessageDisclaimer extends React.Component<IGenerateCo
   }
 
   public render() {
+    const provider = getCommitMessageProvider()
+    const isCopilot = provider === 'copilot'
+
     return (
       <Dialog
-        title="GitHub Copilot"
+        title={isCopilot ? 'GitHub Copilot' : 'AI-generated commit message'}
         id="generate-commit-message-disclaimer"
         type="warning"
         onDismissed={this.props.onDismissed}
@@ -39,11 +43,20 @@ export class GenerateCommitMessageDisclaimer extends React.Component<IGenerateCo
       >
         <DialogContent>
           <p id="generate-commit-message-disclaimer-body">
-            Copilot is powered by AI, so mistakes are possible. Review and edit
-            the generated message carefully before use.{' '}
-            <LinkButton uri="https://gh.io/copilot-for-desktop-transparency">
-              Learn more about Copilot in GitHub Desktop.
-            </LinkButton>
+            {isCopilot ? (
+              <>
+                Copilot is powered by AI, so mistakes are possible. Review and
+                edit the generated message carefully before use.{' '}
+                <LinkButton uri="https://gh.io/copilot-for-desktop-transparency">
+                  Learn more about Copilot in GitHub Desktop.
+                </LinkButton>
+              </>
+            ) : (
+              <>
+                AI-generated messages may contain mistakes. Review and edit the
+                generated message carefully before use.
+              </>
+            )}
           </p>
         </DialogContent>
         <DialogFooter>
